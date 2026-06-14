@@ -1,0 +1,2 @@
+jacob,Warrior,Power Strike,1,100,10,1
+bob,Tank,Shield Bash,1,120,6,4
