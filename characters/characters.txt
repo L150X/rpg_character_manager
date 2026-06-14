@@ -1,2 +1,4 @@
-jacob,Warrior,Power Strike,1,100,10,1
-bob,Tank,Shield Bash,1,120,6,4
+a,Warrior,Power Strike,1,100,10,1
+b,Mage,Fireball,1,90,12,1
+c,Archer,Piercing Shot,1,90,14,0
+d,Tank,Shield Bash,1,120,6,4

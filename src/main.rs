@@ -231,7 +231,8 @@ fn sort_characters(characters: &mut Vec<Character>){
     println!("2. Level");
     println!("3. Attack");
     println!("4. HP");
-    let choice = get_int(1,4); // Get choice
+    println!("5. Defense");
+    let choice = get_int(1,5); // Get choice
 
     // Based on the choice
     match choice {
@@ -239,16 +240,16 @@ fn sort_characters(characters: &mut Vec<Character>){
             characters.sort_by(|a,b| a.name.cmp(&b.name)); // Sort by name
         }
         2 => {
-            characters.sort_by(|a,b| a.level.cmp(&b.level)); // Sort by level
+            characters.sort_by(|b,a| a.level.cmp(&b.level)); // Sort by level
         }
         3 => {
-            characters.sort_by(|a,b| a.attack.cmp(&b.attack)); // Sort by attack
+            characters.sort_by(|b,a| a.attack.cmp(&b.attack)); // Sort by attack
         }
         4 => {
-            characters.sort_by(|a,b| a.hp.cmp(&b.hp)); // Sort by hp
+            characters.sort_by(|b,a| a.hp.cmp(&b.hp)); // Sort by hp
         }
         5 => {
-            characters.sort_by(|a,b| a.defense.cmp(&b.defense)); // Sort by defense
+            characters.sort_by(|b,a| a.defense.cmp(&b.defense)); // Sort by defense
         }
         _ => {
             unreachable!();
@@ -305,6 +306,155 @@ fn delete_character(characters: &mut Vec<Character>) {
     }
 
     // Wait for enter press
+    wait_for_enter();
+}
+
+/// Saves all characters as a text file
+fn save_characters(characters: &mut Vec<Character>){
+    // Get confirmation
+    line();
+    println!("Are you sure? Your current characters save file will be overwritten.");
+    println!("Enter 1 for yes, 2 for no");
+    let answer = get_int(1, 2); // Get input
+    if answer == 2{ // If they do not want to,
+        return; // Exit the loop
+    }
+    line();
+
+    // Set output string
+    let mut output = String::new();
+
+    // For each character
+    for character in characters{
+        // Add each character to the output string
+        output.push_str(&format!(
+            "{},{},{},{},{},{},{}\n",
+            character.name,
+            character.class_type,
+            character.ability,
+            character.level,
+            character.hp,
+            character.attack,
+            character.defense
+        ));
+    }
+
+    // Write output to the characters file
+    match fs::write("characters/characters.txt", output){
+        Ok(_) => { // If it works, output that it was a success
+            println!("Characters saved successfully!");
+        }
+        Err(error) => { // If it encounters an error, output that there was an error
+            println!("Error saving file: {}", error);
+        }
+    }
+
+    // Wait for enter key
+    wait_for_enter();
+}
+
+/// Loads characters from a text file
+fn load_characters(characters: &mut Vec<Character>){
+    // Get confirmation
+    line();
+    println!("Are you sure? Your current characters will be cleared.");
+    println!("Enter 1 for yes, 2 for no");
+    let answer = get_int(1, 2); // Get input
+    if answer == 2{
+        return; // Exit the loop
+    }
+    line();
+
+    // Clear old characters
+    characters.clear();
+
+    // Load contents of the file
+    let contents = match fs::read_to_string("characters/characters.txt"){
+        Ok(text) => text, // If everything works, use the text that was read
+        Err(error) => { // If there is an error
+            println!("Error loading file: {}", error); // Output error message
+            wait_for_enter(); // Wait for input, then exit function
+            return;
+        }
+    };
+
+    // For each line of the read contents
+    for line in contents.lines(){
+        // Split it into parts while removing the commas inbetween
+        let parts: Vec<&str> = line.split(',').collect();
+        if parts.len() != 7{
+            continue;
+        }
+
+        // Rebuild each character
+        let character = Character{
+        // For string values, convert them to being a string
+        name: parts[0].to_string(), 
+        class_type: parts[1].to_string(),
+        ability: parts[2].to_string(),
+        // For int32 values, convert it to int32. If it fails, unwrap to default (ex. 1 for level)
+        level: parts[3].parse().unwrap_or(1),
+        hp: parts[4].parse().unwrap_or(100),
+        attack: parts[5].parse().unwrap_or(10),
+        defense: parts[6].parse().unwrap_or(1),
+        };
+
+        // Add the built character
+        characters.push(character);
+    }
+
+    // Output it was a success
+    println!("Characters loaded successfully!");
+    wait_for_enter(); // Wait for enter key
+}
+
+/// Searches for a character that the user names and allowes the user to modify the character
+fn search_and_modify_character(characters: &Vec<Character>){
+    // Set terminal text color to red
+    execute!(stdout(), SetForegroundColor(Color::Red)).unwrap();
+    // Output title
+    output_screen("assets/search_and_modify_art.txt", "Searching characters...");
+
+    // If there are no created characters, output there are none
+    if characters.is_empty(){
+        println!("No characters exist.");
+        return; // Return to main
+    }
+
+    // Get name to search
+    println!("Enter character name to find:");
+    let search_name = read_line();
+
+    // Create found variable
+    let mut found = false;
+
+    // For all characters, attempt to find the named character
+    for character in characters{
+        if character.name.to_lowercase() == search_name.to_lowercase(){ // Set them to lowercase
+            println!("Character Found!");
+            line();
+
+            // Output the named character
+            println!("Name: {}", character.name);
+            println!("Class: {}", character.class_type);
+            println!("Ability: {}", character.ability);
+            println!("Level: {}", character.level);
+            println!("HP: {}", character.hp);
+            println!("Attack: {}", character.attack);
+            println!("Defense: {}", character.defense);
+
+            // Update found variable
+            found = true;
+            break; // Break the for loop
+        }
+    }
+
+    // If there were no characters found with that name
+    if !found{
+        println!("Character not found."); // Output that there were none found
+    }
+
+    // Wait for enter to continue
     wait_for_enter();
 }
 
@@ -371,134 +521,5 @@ fn main() {
             _ => unreachable!(), // Could not happen
         }
     }
-}
-
-/// Saves all characters as a text file
-fn save_characters(characters: &mut Vec<Character>){
-    // Set output string
-    let mut output = String::new();
-
-    // For each character
-    for character in characters{
-        // Add each character to the output string
-        output.push_str(&format!(
-            "{},{},{},{},{},{},{}\n",
-            character.name,
-            character.class_type,
-            character.ability,
-            character.level,
-            character.hp,
-            character.attack,
-            character.defense
-        ));
-    }
-
-    // Write output to the characters file
-    match fs::write("characters/characters.txt", output){
-        Ok(_) => { // If it works, output that it was a success
-            println!("Characters saved successfully!");
-        }
-        Err(error) => { // If it encounters an error, output that there was an error
-            println!("Error saving file: {}", error);
-        }
-    }
-
-    // Wait for enter key
-    wait_for_enter();
-}
-
-/// Loads characters from a text file
-fn load_characters(characters: &mut Vec<Character>){
-    // Clear old characters
-    characters.clear();
-
-    // Load contents of the file
-    let contents = match fs::read_to_string("characters/characters.txt"){
-        Ok(text) => text, // If everything works, 
-        Err(error) => { // If there is an error
-            println!("Error loading file: {}", error); // Output error message
-            wait_for_enter(); // Wait for input, then exit function
-            return;
-        }
-    };
-
-    // For each line of the read contents
-    for line in contents.lines(){
-        // Split it into parts while removing the commas inbetween
-        let parts: Vec<&str> = line.split(',').collect();
-        if parts.len() != 7{
-            continue;
-        }
-
-        // Rebuild each character
-        let character = Character{
-        // For string values, convert them to being a string
-        name: parts[0].to_string(), 
-        class_type: parts[1].to_string(),
-        ability: parts[2].to_string(),
-        // For int32 values, set it to int32. If it fails, unwrap to default (ex. 1 for level)
-        level: parts[3].parse().unwrap_or(1),
-        hp: parts[4].parse().unwrap_or(100),
-        attack: parts[5].parse().unwrap_or(10),
-        defense: parts[6].parse().unwrap_or(1),
-        };
-
-        // Add the built character
-        characters.push(character);
-    }
-
-    // Output it was a success
-    println!("Characters loaded successfully!");
-    wait_for_enter(); // Wait for enter key
-}
-
-/// Searches for a character that the user names and allowes the user to modify the character
-fn search_and_modify_character(characters: &Vec<Character>){
-    // Set terminal text color to red
-    execute!(stdout(), SetForegroundColor(Color::Red)).unwrap();
-    // Output title
-    output_screen("assets/search_and_modify_art.txt", "Searching characters...");
-
-    // If there are no created characters, output there are none
-    if characters.is_empty(){
-        println!("No characters exist.");
-        return; // Return to main
-    }
-
-    // Get name to search
-    println!("Enter character name to find:");
-    let search_name = read_line();
-
-    // Create found variable
-    let mut found = false;
-
-    // For all characters, attempt to find the named character
-    for character in characters{
-        if character.name.to_lowercase() == search_name.to_lowercase(){ // Set them to lowercase
-            println!("Character Found!");
-            line();
-
-            // Output the named character
-            println!("Name: {}", character.name);
-            println!("Class: {}", character.class_type);
-            println!("Ability: {}", character.ability);
-            println!("Level: {}", character.level);
-            println!("HP: {}", character.hp);
-            println!("Attack: {}", character.attack);
-            println!("Defense: {}", character.defense);
-
-            // Update found variable
-            found = true;
-            break; // Break the for loop
-        }
-    }
-
-    // If there were no characters found with that name
-    if !found{
-        println!("Character not found."); // Output that there were none found
-    }
-
-    // Wait for enter to continue
-    wait_for_enter();
 }
 
