@@ -1,8 +1,10 @@
+use colored::*;
 use std::fs; // Import fs for file functions
 
 // Use crossterm for terminal manipulation and styling, as similar to C# as possible
 use crossterm::{
     cursor::MoveTo,
+    cursor::MoveUp,
     execute,                            // Import execute function for terminal commands
     style::{Color, SetForegroundColor}, // Import Color and SetForegroundColor for styling text
     terminal::{Clear, ClearType, size}, // Import Clear and ClearType for clearing the terminal
@@ -12,6 +14,8 @@ use crossterm::{
 // Without this, it would need to be std::io::stdin/stdout() every time
 use std::io::stdin;
 use std::io::stdout;
+
+use std::io::Write;
 
 /// Reads a line of input from the user, returning it as a string
 fn read_line() -> String {
@@ -79,9 +83,9 @@ fn output_screen(art_path: &str, extra_info: &str) {
     // Output extra information
     println!("{extra_info}");
     line();
-    
-    // Set terminal text color to white
-    execute!(stdout(), SetForegroundColor(Color::White)).unwrap();
+
+    // Set terminal text color to gray
+    execute!(stdout(), SetForegroundColor(Color::Grey)).unwrap();
 }
 
 /// Output a line across the screen
@@ -98,7 +102,7 @@ fn wait_for_enter() {
 }
 
 /// Outputs the create a character title
-fn create_character_title(){
+fn create_character_title() {
     // Set terminal text color to green
     execute!(stdout(), SetForegroundColor(Color::Green)).unwrap();
 
@@ -107,30 +111,33 @@ fn create_character_title(){
 }
 
 /// Create a character function
-fn create_character(characters: &Vec<Character>) -> Character{
+fn create_character(characters: &Vec<Character>) -> Character {
     // Output title
     create_character_title();
 
     // Get character name
     println!("Enter character name:");
-    let name = loop { // Ensure the character name entered is not a duplicate name
+    let name = loop {
+        // Ensure the character name entered is not a duplicate name
         let name = read_line(); // Get name
         let mut duplicate = false; // Set duplicate bool
 
         // For every character
-        for character in characters{
+        for character in characters {
             // If the character has the same name as the name to be made
-            if character.name.to_lowercase() == name.to_lowercase(){
+            if character.name.to_lowercase() == name.to_lowercase() {
                 // Output that the name already exists as a character
+                line();
                 println!("A character with that name already exists");
                 println!("Please enter a different name");
+                line();
                 duplicate = true; // Set duplicate to true
                 break; // Break the for loop
             }
         }
 
         // If it was not a duplicate, break the loop and return name
-        if !duplicate{
+        if !duplicate {
             break name;
         }
     };
@@ -142,12 +149,13 @@ fn create_character(characters: &Vec<Character>) -> Character{
     println!("2. Mage");
     println!("3. Archer");
     println!("4. Tank");
-    let class_choice = get_int(1,4);
-    let (class_type, ability, hp, attack, defense) = match class_choice{ // Choose class type based on the class choice
-        1 => ("Warrior","Power Strike", 100, 10, 1,),
-        2 => ("Mage", "Fireball", 90, 12, 1,),
-        3 => ("Archer", "Piercing Shot", 90, 14, 0,),
-        4 => ("Tank", "Shield Bash", 120, 6, 4,),
+    let class_choice = get_int(1, 4);
+    let (class_type, ability, hp, attack, defense, speed) = match class_choice {
+        // Choose class type based on the class choice
+        1 => ("Warrior", "Power Strike", 100, 10, 2, 10),
+        2 => ("Mage", "Fireball", 90, 12, 1, 12),
+        3 => ("Archer", "Piercing Shot", 90, 14, 0, 16),
+        4 => ("Tank", "Shield Bash", 120, 6, 5, 6),
         _ => unreachable!(), // Unreachable code as the int is verified
     };
 
@@ -157,14 +165,18 @@ fn create_character(characters: &Vec<Character>) -> Character{
     wait_for_enter();
 
     // Create and return the character
-    Character{
+    Character {
         name,
         class_type: class_type.to_string(),
         ability: ability.to_string(),
         level: 1,
+        xp: 0,
+        max_hp: hp,
         hp,
+        base_attack: attack,
         attack,
         defense,
+        speed,
     }
 }
 
@@ -173,38 +185,82 @@ struct Character {
     name: String,
     class_type: String,
     ability: String,
+
     level: i32,
+    xp: i32,
+
+    max_hp: i32,
     hp: i32,
+
+    base_attack: i32,
     attack: i32,
+
     defense: i32,
+    speed: i32,
+}
+
+/// Levels up a specific character if possible
+fn level_up(character: &mut Character) {
+    // While the character has enough xp to level up
+    while character.xp >= character.level * 100 {
+        character.xp -= character.level * 100; // Remove the xp
+        character.level += 1; // Add the level
+        // Add statisitics for levelling up
+        character.max_hp += 10;
+        character.hp = character.max_hp; // Heal fully on level up
+        character.base_attack += 2;
+        character.attack = character.base_attack;
+        character.defense += 1;
+        character.speed += 1;
+
+        // Output that the character levelled up and info regarding it
+        println!(
+            "{} levelled up to level {}!",
+            character.name, character.level
+        );
+    }
+}
+
+/// Gives xp to a character and attempts to level them up
+fn give_xp(character: &mut Character, xp: i32) {
+    // Add the xp to the character
+    character.xp += xp;
+    println!("{} gained {} XP!", character.name, xp); // Output xp change
+
+    // Attempt to level up the character
+    level_up(character);
 }
 
 /// View all characters
-fn view_characters(characters: &Vec<Character>){
+fn view_characters(characters: &Vec<Character>) {
     // If there are no characters, output that there are none and go back to main menu
-    if characters.is_empty(){
+    if characters.is_empty() {
         println!("No characters created.");
         wait_for_enter();
         return;
     }
 
-    // Set terminal text color to red
-    execute!(stdout(), SetForegroundColor(Color::Red)).unwrap();
+    // Set terminal text color to yellow
+    execute!(stdout(), SetForegroundColor(Color::Yellow)).unwrap();
     // Output title
     output_screen("assets/view_characters_art.txt", "Viewing Characters");
 
     // Output the characters
-    for character in characters{
+    for character in characters {
         line();
         println!(
-            "{} | {} | Ability: {} | Level: {} | HP: {} | ATK: {} | DEF: {} |",
+            "{} | {} | Ability: {} | Level: {} | XP: {}/{} | HP: {}/{} | ATK: {} | DEF: {} | SPD: {} |",
             character.name,
             character.class_type,
             character.ability,
             character.level,
+            character.xp,
+            character.level * 100,
             character.hp,
+            character.max_hp,
             character.attack,
             character.defense,
+            character.speed,
         );
     }
 
@@ -213,14 +269,17 @@ fn view_characters(characters: &Vec<Character>){
 }
 
 /// Sorts the characters vector by what the user requests
-fn sort_characters(characters: &mut Vec<Character>){
-    // Set terminal text color to red
-    execute!(stdout(), SetForegroundColor(Color::Red)).unwrap();
+fn sort_characters(characters: &mut Vec<Character>) {
+    // Set terminal text color to magenta
+    execute!(stdout(), SetForegroundColor(Color::Magenta)).unwrap();
     // Output title
-    output_screen("assets/search_and_modify_art.txt", "Searching characters...");
-    
+    output_screen(
+        "assets/search_and_modify_art.txt",
+        "Searching characters...",
+    );
+
     // If there are no characters
-    if characters.is_empty(){
+    if characters.is_empty() {
         println!("No characters to sort.");
         return;
     }
@@ -232,24 +291,24 @@ fn sort_characters(characters: &mut Vec<Character>){
     println!("3. Attack");
     println!("4. HP");
     println!("5. Defense");
-    let choice = get_int(1,5); // Get choice
+    let choice = get_int(1, 5); // Get choice
 
     // Based on the choice
     match choice {
         1 => {
-            characters.sort_by(|a,b| a.name.cmp(&b.name)); // Sort by name
+            characters.sort_by(|a, b| a.name.cmp(&b.name)); // Sort by name
         }
         2 => {
-            characters.sort_by(|b,a| a.level.cmp(&b.level)); // Sort by level
+            characters.sort_by(|b, a| a.level.cmp(&b.level)); // Sort by level
         }
         3 => {
-            characters.sort_by(|b,a| a.attack.cmp(&b.attack)); // Sort by attack
+            characters.sort_by(|b, a| a.attack.cmp(&b.attack)); // Sort by attack
         }
         4 => {
-            characters.sort_by(|b,a| a.hp.cmp(&b.hp)); // Sort by hp
+            characters.sort_by(|b, a| a.hp.cmp(&b.hp)); // Sort by hp
         }
         5 => {
-            characters.sort_by(|b,a| a.defense.cmp(&b.defense)); // Sort by defense
+            characters.sort_by(|b, a| a.defense.cmp(&b.defense)); // Sort by defense
         }
         _ => {
             unreachable!();
@@ -264,8 +323,8 @@ fn sort_characters(characters: &mut Vec<Character>){
 
 /// Function to delete a character by name
 fn delete_character(characters: &mut Vec<Character>) {
-    // Set terminal text color to red
-    execute!(stdout(), SetForegroundColor(Color::Red)).unwrap();
+    // Set terminal text color to cyan
+    execute!(stdout(), SetForegroundColor(Color::Cyan)).unwrap();
     // Output title
     output_screen("assets/delete_character_art.txt", "Deleting a character");
 
@@ -288,6 +347,7 @@ fn delete_character(characters: &mut Vec<Character>) {
             break;
         }
     }
+    line(); // Spacing
 
     // Match the index
     match index {
@@ -310,13 +370,14 @@ fn delete_character(characters: &mut Vec<Character>) {
 }
 
 /// Saves all characters as a text file
-fn save_characters(characters: &mut Vec<Character>){
+fn save_characters(characters: &mut Vec<Character>) {
     // Get confirmation
     line();
     println!("Are you sure? Your current characters save file will be overwritten.");
     println!("Enter 1 for yes, 2 for no");
     let answer = get_int(1, 2); // Get input
-    if answer == 2{ // If they do not want to,
+    if answer == 2 {
+        // If they do not want to,
         return; // Exit the loop
     }
     line();
@@ -325,26 +386,32 @@ fn save_characters(characters: &mut Vec<Character>){
     let mut output = String::new();
 
     // For each character
-    for character in characters{
+    for character in characters {
         // Add each character to the output string
         output.push_str(&format!(
-            "{},{},{},{},{},{},{}\n",
+            "{},{},{},{},{},{},{},{},{},{},{}\n",
             character.name,
             character.class_type,
             character.ability,
             character.level,
+            character.xp,
+            character.max_hp,
             character.hp,
+            character.base_attack,
             character.attack,
-            character.defense
+            character.defense,
+            character.speed
         ));
     }
 
     // Write output to the characters file
-    match fs::write("characters/characters.txt", output){
-        Ok(_) => { // If it works, output that it was a success
+    match fs::write("characters/characters.txt", output) {
+        Ok(_) => {
+            // If it works, output that it was a success
             println!("Characters saved successfully!");
         }
-        Err(error) => { // If it encounters an error, output that there was an error
+        Err(error) => {
+            // If it encounters an error, output that there was an error
             println!("Error saving file: {}", error);
         }
     }
@@ -354,13 +421,13 @@ fn save_characters(characters: &mut Vec<Character>){
 }
 
 /// Loads characters from a text file
-fn load_characters(characters: &mut Vec<Character>){
+fn load_characters(characters: &mut Vec<Character>) {
     // Get confirmation
     line();
     println!("Are you sure? Your current characters will be cleared.");
     println!("Enter 1 for yes, 2 for no");
     let answer = get_int(1, 2); // Get input
-    if answer == 2{
+    if answer == 2 {
         return; // Exit the loop
     }
     line();
@@ -369,9 +436,10 @@ fn load_characters(characters: &mut Vec<Character>){
     characters.clear();
 
     // Load contents of the file
-    let contents = match fs::read_to_string("characters/characters.txt"){
+    let contents = match fs::read_to_string("characters/characters.txt") {
         Ok(text) => text, // If everything works, use the text that was read
-        Err(error) => { // If there is an error
+        Err(error) => {
+            // If there is an error
             println!("Error loading file: {}", error); // Output error message
             wait_for_enter(); // Wait for input, then exit function
             return;
@@ -379,24 +447,28 @@ fn load_characters(characters: &mut Vec<Character>){
     };
 
     // For each line of the read contents
-    for line in contents.lines(){
+    for line in contents.lines() {
         // Split it into parts while removing the commas inbetween
         let parts: Vec<&str> = line.split(',').collect();
-        if parts.len() != 7{
+        if parts.len() != 11 {
             continue;
         }
 
         // Rebuild each character
-        let character = Character{
-        // For string values, convert them to being a string
-        name: parts[0].to_string(), 
-        class_type: parts[1].to_string(),
-        ability: parts[2].to_string(),
-        // For int32 values, convert it to int32. If it fails, unwrap to default (ex. 1 for level)
-        level: parts[3].parse().unwrap_or(1),
-        hp: parts[4].parse().unwrap_or(100),
-        attack: parts[5].parse().unwrap_or(10),
-        defense: parts[6].parse().unwrap_or(1),
+        let character = Character {
+            // For string values, convert them to being a string
+            name: parts[0].to_string(),
+            class_type: parts[1].to_string(),
+            ability: parts[2].to_string(),
+            // For int32 values, convert it to int32. If it fails, unwrap to default (ex. 1 for level)
+            level: parts[3].parse().unwrap_or(1),
+            xp: parts[4].parse().unwrap_or(0),
+            max_hp: parts[5].parse().unwrap_or(100),
+            hp: parts[6].parse().unwrap_or(100),
+            base_attack: parts[7].parse().unwrap_or(10),
+            attack: parts[8].parse().unwrap_or(10),
+            defense: parts[9].parse().unwrap_or(1),
+            speed: parts[10].parse().unwrap_or(10),
         };
 
         // Add the built character
@@ -409,14 +481,17 @@ fn load_characters(characters: &mut Vec<Character>){
 }
 
 /// Searches for a character that the user names and allowes the user to modify the character
-fn search_and_modify_character(characters: &Vec<Character>){
-    // Set terminal text color to red
-    execute!(stdout(), SetForegroundColor(Color::Red)).unwrap();
+fn search_and_modify_character(characters: &mut Vec<Character>) {
+    // Set terminal text color to blue
+    execute!(stdout(), SetForegroundColor(Color::Blue)).unwrap();
     // Output title
-    output_screen("assets/search_and_modify_art.txt", "Searching characters...");
+    output_screen(
+        "assets/search_and_modify_art.txt",
+        "Searching characters...",
+    );
 
     // If there are no created characters, output there are none
-    if characters.is_empty(){
+    if characters.is_empty() {
         println!("No characters exist.");
         return; // Return to main
     }
@@ -424,13 +499,15 @@ fn search_and_modify_character(characters: &Vec<Character>){
     // Get name to search
     println!("Enter character name to find:");
     let search_name = read_line();
+    line();
 
     // Create found variable
     let mut found = false;
 
     // For all characters, attempt to find the named character
-    for character in characters{
-        if character.name.to_lowercase() == search_name.to_lowercase(){ // Set them to lowercase
+    for character in characters.iter_mut() {
+        if character.name.to_lowercase() == search_name.to_lowercase() {
+            // Set them to lowercase
             println!("Character Found!");
             line();
 
@@ -439,9 +516,36 @@ fn search_and_modify_character(characters: &Vec<Character>){
             println!("Class: {}", character.class_type);
             println!("Ability: {}", character.ability);
             println!("Level: {}", character.level);
-            println!("HP: {}", character.hp);
+            println!("XP: {}/{}", character.xp, character.level * 100);
+            println!("HP: {}/{}", character.hp, character.max_hp);
             println!("Attack: {}", character.attack);
             println!("Defense: {}", character.defense);
+            println!("Speed: {}", character.speed);
+
+            // Revive them if they have 0 hp
+            if check_if_dead(character) {
+                println!("{} has been revived!", character.name);
+                character.hp = character.max_hp; // Set their hp to their max hp
+            }
+
+            // Ask the user if they want to add xp
+            line();
+            println!("Would you like to add XP?");
+            println!("1. Yes");
+            println!("2. No");
+            let choice = get_int(1, 2); // Get user choice
+
+            // If they wanted to add xp
+            if choice == 1 {
+                // Clear the previous asking phase
+                execute!(stdout(), MoveUp(4)).unwrap();
+                execute!(stdout(), Clear(ClearType::FromCursorDown)).unwrap();
+                // Get amount to add
+                println!("How much XP would you like to add?");
+                let xp_to_add = get_int(1, 100000);
+                line();
+                give_xp(character, xp_to_add); // Add the xp and attempt to level up
+            }
 
             // Update found variable
             found = true;
@@ -450,7 +554,7 @@ fn search_and_modify_character(characters: &Vec<Character>){
     }
 
     // If there were no characters found with that name
-    if !found{
+    if !found {
         println!("Character not found."); // Output that there were none found
     }
 
@@ -471,13 +575,23 @@ fn main() {
         // Output title
         output_screen("assets/rpg_character_manager_art.txt", "Welcome!");
 
-        // Set terminal text color to white
-        execute!(stdout(), SetForegroundColor(Color::White)).unwrap();
+        // Set terminal text color to grey
+        execute!(stdout(), SetForegroundColor(Color::Grey)).unwrap();
 
         // Output list of what the user could do
         println!("What would you like to do?");
-        let choices = ["Create a Character", "View Characters", "Search and Modify a Character", 
-        "Sort Characters", "Delete a Character", "Save Characters", "Load Characters", "Exit"]; // Create an array of choices
+        let choices = [
+            "Create a Character",
+            "View Characters",
+            "Search and Modify a Character",
+            "Sort Characters",
+            "Delete a Character",
+            "Save Characters",
+            "Load Characters",
+            "Explore Forest",
+            "Character Duel",
+            "Exit",
+        ]; // Create an array of choices
 
         // For each choice, output it with formatting (eg., 1. Create character)
         let mut count = 1;
@@ -488,7 +602,7 @@ fn main() {
 
         // Get user input
         line();
-        println!("Enter a number corresponding to the action you want to:");
+        println!("Enter a number corresponding to the action you want to do:");
         let choice = get_int(1, choices.len() as i32);
 
         match choice {
@@ -499,9 +613,9 @@ fn main() {
             }
             2 => {
                 view_characters(&characters) // View the characters and pass a reference to the vector
-            } 
+            }
             3 => {
-                search_and_modify_character(&characters); // Call search and modify function
+                search_and_modify_character(&mut characters); // Call search and modify function
             }
             4 => {
                 sort_characters(&mut characters); // Call sort characters function
@@ -516,6 +630,12 @@ fn main() {
                 load_characters(&mut characters);
             }
             8 => {
+                explore_forest(&mut characters);
+            }
+            9 => {
+                character_battle(&mut characters);
+            }
+            10 => {
                 break; // Exit the terminal by breaking the loop
             }
             _ => unreachable!(), // Could not happen
@@ -523,3 +643,479 @@ fn main() {
     }
 }
 
+/// Allows the user to choose a character for an adventure. Returns the character index
+fn choose_character(characters: &Vec<Character>) -> usize {
+    // Ask the user to choose a character
+    line();
+    println!("Choose a character:");
+    // Output the characters
+    for i in 0..characters.len() {
+        println!("{}. {}", i + 1, characters[i].name);
+    }
+    // Get choice
+    let choice = get_int(1, characters.len() as i32);
+    (choice - 1) as usize // Return choice index
+}
+
+/// Allows the user to explore the forest which has random encounters, a map, etc., with a character.
+fn explore_forest(characters: &mut Vec<Character>) {
+    // If there are no characters
+    if characters.is_empty() {
+        // Output that there are no characters
+        println!("No characters exist.");
+        wait_for_enter();
+        return; // Return to main
+    }
+    // Get character index of a chosen character
+    let character_index = choose_character(characters);
+    let character = &mut characters[character_index];
+
+    let width = 10;
+    let height = 10;
+
+    let map = create_map(width, height);
+
+    let mut x: usize = 5;
+    let mut y: usize = 5;
+
+    loop {
+        // Set terminal text color to dark green
+        execute!(stdout(), SetForegroundColor(Color::DarkGreen)).unwrap();
+        // Output title
+        output_screen("assets/forest_exploration_art.txt", "Exploring the forest!");
+
+        if check_if_dead(character) {
+            println!(
+                "{} cannot continue as they have 0 hp! Revive them in the search and modify area.",
+                character.name
+            );
+            break;
+        }
+
+        render_map(&map, x, y);
+
+        line();
+        println!("Exploring as {}:", character.name);
+        println!(
+            "HP: {}/{} | ATK: {} | DEF: {}",
+            character.hp, character.max_hp, character.attack, character.defense
+        );
+        line();
+        let input = get_move();
+
+        let (new_x, new_y) = match input.as_str() {
+            "w" => (x, y.saturating_sub(1)),
+            "s" => (x, (y + 1).min(height - 1)),
+            "a" => (x.saturating_sub(1), y),
+            "d" => ((x + 1).min(width - 1), y),
+            "q" => break,
+            _ => (x, y),
+        };
+
+        // prevent walking into walls
+        if map[new_y][new_x] == '#' {
+            println!("Blocked by wall.");
+            wait_for_enter();
+            continue;
+        }
+
+        x = new_x;
+        y = new_y;
+
+        // trigger encounter after movement
+        line();
+        trigger_encounter(character);
+
+        wait_for_enter();
+    }
+}
+
+fn create_map(width: usize, height: usize) -> Vec<Vec<char>> {
+    let mut map = vec![vec!['.'; width]; height];
+
+    // Add borders
+    for x in 0..width {
+        map[0][x] = '#';
+        map[height - 1][x] = '#';
+    }
+
+    for y in 0..height {
+        map[y][0] = '#';
+        map[y][width - 1] = '#';
+    }
+    map
+}
+
+fn render_map(map: &Vec<Vec<char>>, player_x: usize, player_y: usize) {
+    for y in 0..map.len() {
+        for x in 0..map[y].len() {
+            if x == player_x && y == player_y {
+                print!(" {} ", "P".blue().bold());
+            } else {
+                print!(" {} ", map[y][x]);
+            }
+        }
+        println!();
+    }
+}
+
+fn get_move() -> String {
+    print!("Move (WASD, Q to Quit): ");
+    stdout().flush().unwrap();
+
+    let mut input = String::new();
+    stdin().read_line(&mut input).unwrap();
+
+    input.trim().to_lowercase()
+}
+
+fn trigger_encounter(character: &mut Character) {
+    let roll = rand::random_range(0..=100);
+
+    if roll < 40 {
+        println!("Nothing happened!");
+    } else if roll < 60 {
+        let mut enemy = Enemy {
+            name: "Goblin".to_string(),
+            hp: 25 + level * 12.
+            attack: 3 + level * 2,
+            defense: level / 3,
+        };
+
+        combat_loop(character, &mut enemy);
+    } else if roll < 75 {
+        println!("Potion found (+5 hp)");
+        character.hp += 5;
+    } else if roll < 90 {
+        println!("XP orb found (+50 XP)");
+        give_xp(character, 50)
+    } else {
+        println!("Sword found (+1 attack)");
+        character.attack += 1;
+    }
+}
+
+struct Enemy {
+    name: String,
+    hp: i32,
+    attack: i32,
+    defense: i32,
+}
+
+fn combat_loop(player: &mut Character, enemy: &mut Enemy) {
+    // Set terminal text color to dark red
+    execute!(stdout(), SetForegroundColor(Color::DarkRed)).unwrap();
+    // Output title
+    output_screen("assets/combat_art.txt", "Fighting!");
+    println!("A wild {} appears!", enemy.name);
+    wait_for_enter();
+
+    loop {
+        // Set terminal text color to dark red
+        execute!(stdout(), SetForegroundColor(Color::DarkRed)).unwrap();
+        // Output title
+        output_screen("assets/combat_art.txt", "Fighting!");
+
+        println!("{} HP: {}/{}", player.name, player.hp, player.max_hp);
+        println!("{} HP: {}", enemy.name, enemy.hp);
+
+        line();
+        println!("Choose action:");
+        println!("1. Attack");
+        println!("2. Use ability");
+
+        let choice = get_int(1, 2);
+
+        // PLAYER TURN
+        match choice {
+            1 => {
+                let damage = (player.attack - enemy.defense).max(1);
+                enemy.hp -= damage;
+            }
+
+            2 => {
+                let damage = (player.attack * 2 - enemy.defense).max(1);
+                enemy.hp -= damage;
+            }
+
+            _ => {
+                unreachable!();
+            }
+        }
+
+        // CHECK WIN
+        if enemy.hp <= 0 {
+            // Set terminal text color to dark red
+            execute!(stdout(), SetForegroundColor(Color::DarkRed)).unwrap();
+            // Output title
+            output_screen("assets/combat_art.txt", "Fighting!");
+            println!("Enemy defeated!");
+            line();
+            give_xp(player, 50);
+            break;
+        }
+
+        // ENEMY TURN
+        let enemy_damage = (enemy.attack - player.defense).max(1);
+        player.hp -= enemy_damage;
+
+        // CHECK LOSS
+        if check_if_dead(player) {
+            break;
+        }
+    }
+}
+
+/// Checks if a character is dead. If so, it returns true. Else, it returns false.
+fn check_if_dead(character: &mut Character) -> bool {
+    // If the character has 0 or less hp
+    if character.hp <= 0 {
+        // Output that the character is dead
+        println!("{} is dead!", character.name);
+        character.hp = 0; // Set hp to 0
+        true // Return true
+    } else {
+        // Otherwise, the character must be alive
+        false // Return false
+    }
+}
+
+fn choose_two_characters(characters: &Vec<Character>) -> (usize, usize) {
+    println!("Choose first fighter:");
+    let fighter1 = choose_character(characters);
+
+    // Set terminal text color to Dark Yellow
+    execute!(stdout(), SetForegroundColor(Color::DarkYellow)).unwrap();
+    // Output title
+    output_screen(
+        "assets/duel_art.txt",
+        "Duel to the death! (HP is not changed outside the arena)",
+    );
+
+    println!("Choose second fighter:");
+
+    loop {
+        let fighter2 = choose_character(characters);
+
+        if fighter2 != fighter1 {
+            return (fighter1, fighter2);
+        }
+
+        println!("Cannot fight the same character.");
+    }
+}
+
+fn character_battle(characters: &mut Vec<Character>) {
+    // Set terminal text color to Dark Yellow
+    execute!(stdout(), SetForegroundColor(Color::DarkYellow)).unwrap();
+    // Output title
+    output_screen(
+        "assets/duel_art.txt",
+        "Duel to the death! (HP is not changed outside the arena)",
+    );
+
+    if characters.len() < 2 {
+        println!("You need at least two characters.");
+        wait_for_enter();
+        return;
+    }
+
+    let (fighter1_index, fighter2_index) = choose_two_characters(characters);
+
+    let fighter1 = &characters[fighter1_index];
+    let fighter2 = &characters[fighter2_index];
+
+    let mut hp1 = fighter1.hp;
+    let mut hp2 = fighter2.hp;
+
+    // Set terminal text color to Dark Yellow
+    execute!(stdout(), SetForegroundColor(Color::DarkYellow)).unwrap();
+    // Output title
+    output_screen(
+        "assets/duel_art.txt",
+        "Duel to the death! (HP is not changed outside the arena)",
+    );
+
+    println!("{} challenges {}!", fighter1.name, fighter2.name);
+
+    wait_for_enter();
+
+    loop {
+        // Set terminal text color to red
+        execute!(stdout(), SetForegroundColor(Color::Red)).unwrap();
+        // Output title
+        output_screen(
+            "assets/duel_art.txt",
+            "Duel to the death! (HP is not changed outside the arena)",
+        );
+
+        println!("{} HP: {}/{}", fighter1.name, hp1, fighter1.max_hp);
+
+        println!("{} HP: {}/{}", fighter2.name, hp2, fighter2.max_hp);
+
+        line();
+
+        // Roll initiative
+        let initiative1 = fighter1.speed + rand::random_range(1..=20);
+        let initiative2 = fighter2.speed + rand::random_range(1..=20);
+
+        if initiative1 >= initiative2 {
+            // Fighter 1 attacks first
+
+            let multiplier = rand::random_range(80..=120);
+
+            let mut damage1 = (fighter1.attack * multiplier / 100 - fighter2.defense).max(1);
+
+            let critical = rand::random_range(1..=100) <= 10;
+
+            if critical {
+                damage1 *= 2;
+            }
+
+            hp2 -= damage1;
+
+            if critical {
+                println!(
+                    "{} attacks {} for {} damage! {}",
+                    fighter1.name,
+                    fighter2.name,
+                    damage1,
+                    "CRITICAL HIT!".green().bold()
+                );
+            } else {
+                println!(
+                    "{} attacks {} for {} damage!",
+                    fighter1.name, fighter2.name, damage1
+                );
+            }
+
+            if hp2 <= 0 {
+                line();
+                println!("{} wins!", fighter1.name);
+
+                give_xp(&mut characters[fighter1_index], 100);
+
+                wait_for_enter();
+                break;
+            }
+
+            // Fighter 2 attacks second
+
+            let multiplier = rand::random_range(80..=120);
+
+            let mut damage2 = (fighter2.attack * multiplier / 100 - fighter1.defense).max(1);
+
+            let critical = rand::random_range(1..=100) <= 10;
+
+            if critical {
+                damage2 *= 2;
+            }
+
+            hp1 -= damage2;
+
+            if critical {
+                println!(
+                    "{} attacks {} for {} damage! {}",
+                    fighter2.name,
+                    fighter1.name,
+                    damage2,
+                    "CRITICAL HIT!".green().bold()
+                );
+            } else {
+                println!(
+                    "{} attacks {} for {} damage!",
+                    fighter2.name, fighter1.name, damage2
+                );
+            }
+
+            if hp1 <= 0 {
+                line();
+                println!("{} wins!", fighter2.name);
+
+                give_xp(&mut characters[fighter2_index], 100);
+
+                wait_for_enter();
+                break;
+            }
+        } else {
+            // Fighter 2 attacks first
+
+            let multiplier = rand::random_range(80..=120);
+
+            let mut damage2 = (fighter2.attack * multiplier / 100 - fighter1.defense).max(1);
+
+            let critical = rand::random_range(1..=100) <= 10;
+
+            if critical {
+                damage2 *= 2;
+            }
+
+            hp1 -= damage2;
+
+            if critical {
+                println!(
+                    "{} attacks {} for {} damage! {}",
+                    fighter2.name,
+                    fighter1.name,
+                    damage2,
+                    "CRITICAL HIT!".green().bold()
+                );
+            } else {
+                println!(
+                    "{} attacks {} for {} damage!",
+                    fighter2.name, fighter1.name, damage2
+                );
+            }
+
+            if hp1 <= 0 {
+                line();
+                println!("{} wins!", fighter2.name);
+
+                give_xp(&mut characters[fighter2_index], 100);
+
+                wait_for_enter();
+                break;
+            }
+
+            // Fighter 1 attacks second
+
+            let multiplier = rand::random_range(80..=120);
+
+            let mut damage1 = (fighter1.attack * multiplier / 100 - fighter2.defense).max(1);
+
+            let critical = rand::random_range(1..=100) <= 10;
+
+            if critical {
+                damage1 *= 2;
+            }
+
+            hp2 -= damage1;
+
+            if critical {
+                println!(
+                    "{} attacks {} for {} damage! {}",
+                    fighter1.name,
+                    fighter2.name,
+                    damage1,
+                    "CRITICAL HIT!".green().bold()
+                );
+            } else {
+                println!(
+                    "{} attacks {} for {} damage!",
+                    fighter1.name, fighter2.name, damage1
+                );
+            }
+
+            if hp2 <= 0 {
+                line();
+                println!("{} wins!", fighter1.name);
+
+                give_xp(&mut characters[fighter1_index], 100);
+
+                wait_for_enter();
+                break;
+            }
+        }
+        wait_for_enter();
+    }
+}
