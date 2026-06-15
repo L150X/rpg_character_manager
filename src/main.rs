@@ -1,33 +1,24 @@
-use colored::*;
+use colored::*; // Import everything from colored
 use std::fs; // Import fs for file functions
-
 // Use crossterm for terminal manipulation and styling, as similar to C# as possible
 use crossterm::{
-    cursor::MoveTo,
-    cursor::MoveUp,
-    execute,                            // Import execute function for terminal commands
+    cursor::MoveTo,                     // Import cursor move to to move the cursor
+    cursor::MoveUp, // Import cursor move up to clear certain parts of the console instead of all
+    execute,        // Import execute function for terminal commands
     style::{Color, SetForegroundColor}, // Import Color and SetForegroundColor for styling text
     terminal::{Clear, ClearType, size}, // Import Clear and ClearType for clearing the terminal
 };
-
-// Use std::io for input and output operations
-// Without this, it would need to be std::io::stdin/stdout() every time
-use std::io::stdin;
-use std::io::stdout;
-
 use std::io::Write;
+use std::io::stdin; // Use std::io::stdin for input operations
+use std::io::stdout; // Use std::io::stdout for output operations // Needed for flush()
 
 /// Reads a line of input from the user, returning it as a string
 fn read_line() -> String {
-    // Return type is String
-
     // Create a mutable String to hold the input
     let mut input: String = String::new();
-
     stdin() // Allows reading of keyboard input
         .read_line(&mut input) // Read a line of input into the mutable string by borrowing
-        .expect("Failed to read line"); // Handle potential errors with expect
-
+        .expect("Failed to read line"); // If an error occurs (is not Ok(_)), outputs the message and unwraps
     // Trim empty space and newlines, convert it to a string, and return the input
     input.trim().to_string()
 }
@@ -98,7 +89,7 @@ fn line() {
 fn wait_for_enter() {
     line();
     println!("Press enter to continue");
-    read_line();
+    read_line(); // User must press enter to get past this
 }
 
 /// Outputs the create a character title
@@ -182,53 +173,57 @@ fn create_character(characters: &Vec<Character>) -> Character {
 
 /// Character struct
 struct Character {
+    // String values
     name: String,
     class_type: String,
     ability: String,
 
+    // Level related
     level: i32,
     xp: i32,
 
+    // HP related
     max_hp: i32,
     hp: i32,
 
+    // Attack related
     base_attack: i32,
     attack: i32,
 
+    // Other
     defense: i32,
     speed: i32,
 }
 
-/// Levels up a specific character if possible
-fn level_up(character: &mut Character) {
-    // While the character has enough xp to level up
-    while character.xp >= character.level * 100 {
-        character.xp -= character.level * 100; // Remove the xp
-        character.level += 1; // Add the level
-        // Add statisitics for levelling up
-        character.max_hp += 10;
-        character.hp = character.max_hp; // Heal fully on level up
-        character.base_attack += 2;
-        character.attack = character.base_attack;
-        character.defense += 1;
-        character.speed += 1;
-
-        // Output that the character levelled up and info regarding it
-        println!(
-            "{} levelled up to level {}!",
-            character.name, character.level
-        );
+/// Functions for the character struct
+impl Character {
+    /// Gives xp to the character and attempts to level them up
+    fn give_xp(&mut self, xp: i32) {
+        // Add the xp to the character
+        self.xp += xp;
+        println!("{} gained {} XP!", self.name, xp); // Output xp change
+        // Attempt to level up the character
+        self.level_up();
     }
-}
 
-/// Gives xp to a character and attempts to level them up
-fn give_xp(character: &mut Character, xp: i32) {
-    // Add the xp to the character
-    character.xp += xp;
-    println!("{} gained {} XP!", character.name, xp); // Output xp change
+    /// Levels up a specific character if possible
+    fn level_up(&mut self) {
+        // While the character has enough xp to level up
+        while self.xp >= self.level * 100 {
+            self.xp -= self.level * 100; // Remove the xp
+            self.level += 1; // Add the level
+            // Add statisitics for levelling up
+            self.max_hp += 10;
+            self.hp = self.max_hp; // Heal fully on level up
+            self.base_attack += 2;
+            self.attack = self.base_attack;
+            self.defense += 1;
+            self.speed += 1;
 
-    // Attempt to level up the character
-    level_up(character);
+            // Output that the character levelled up and info regarding it
+            println!("{} levelled up to level {}!", self.name, self.level);
+        }
+    }
 }
 
 /// View all characters
@@ -544,7 +539,7 @@ fn search_and_modify_character(characters: &mut Vec<Character>) {
                 println!("How much XP would you like to add?");
                 let xp_to_add = get_int(1, 100000);
                 line();
-                give_xp(character, xp_to_add); // Add the xp and attempt to level up
+                character.give_xp(xp_to_add); // Add the xp and attempt to level up
             }
 
             // Update found variable
@@ -624,16 +619,16 @@ fn main() {
                 delete_character(&mut characters); // Call delete character function
             }
             6 => {
-                save_characters(&mut characters);
+                save_characters(&mut characters); // Call save characters function
             }
             7 => {
-                load_characters(&mut characters);
+                load_characters(&mut characters); // Call load characters function
             }
             8 => {
-                explore_forest(&mut characters);
+                explore_forest(&mut characters); // Call explore forest function
             }
             9 => {
-                character_battle(&mut characters);
+                character_battle(&mut characters); // Call character battle function
             }
             10 => {
                 break; // Exit the terminal by breaking the loop
@@ -670,30 +665,34 @@ fn explore_forest(characters: &mut Vec<Character>) {
     let character_index = choose_character(characters);
     let character = &mut characters[character_index];
 
+    // Set map size and create the map
     let width = 10;
     let height = 10;
-
     let map = create_map(width, height);
+    let mut x: usize = 5; // Player x location
+    let mut y: usize = 5; // Player y location
 
-    let mut x: usize = 5;
-    let mut y: usize = 5;
-
+    // Main loop for exploration
     loop {
         // Set terminal text color to dark green
         execute!(stdout(), SetForegroundColor(Color::DarkGreen)).unwrap();
         // Output title
         output_screen("assets/forest_exploration_art.txt", "Exploring the forest!");
 
+        // Check to see if the character is dead
         if check_if_dead(character) {
+            // If so, output that they cannot continue
             println!(
                 "{} cannot continue as they have 0 hp! Revive them in the search and modify area.",
                 character.name
             );
-            break;
+            break; // Return to main
         }
 
-        render_map(&map, x, y);
+        // Output the map
+        output_map(&map, x, y);
 
+        // Output details of the character that is currently exploring
         line();
         println!("Exploring as {}:", character.name);
         println!(
@@ -701,100 +700,130 @@ fn explore_forest(characters: &mut Vec<Character>) {
             character.hp, character.max_hp, character.attack, character.defense
         );
         line();
-        let input = get_move();
 
+        // Get input
+        let input = get_move();
+        let mut player_moved = true;
+        // Match the input to movement
         let (new_x, new_y) = match input.as_str() {
             "w" => (x, y.saturating_sub(1)),
             "s" => (x, (y + 1).min(height - 1)),
             "a" => (x.saturating_sub(1), y),
             "d" => ((x + 1).min(width - 1), y),
-            "q" => break,
-            _ => (x, y),
+            "q" => break, // If the user wants to leave, break the loop
+            _ => {
+                // If the input was not a "WASD" input, do not move the player
+                player_moved = false;
+                (x, y)
+             } 
         };
 
-        // prevent walking into walls
-        if map[new_y][new_x] == '#' {
-            println!("Blocked by wall.");
-            wait_for_enter();
-            continue;
+        // Prevent walking in walls
+        if map[new_y][new_x] == '#' { // If the location to go to is a wall
+            println!("Blocked by wall."); // Output that the character is blocked by a wall
+            wait_for_enter(); // Wait for enter
+            continue; // Restart loop
         }
 
+        // Set new location
         x = new_x;
         y = new_y;
 
-        // trigger encounter after movement
+        // Trigger encounter after movement
         line();
-        trigger_encounter(character);
+        if player_moved{
+            trigger_encounter(character); // Trigger event only if the player moved
+        }
 
+        // Wait for enter before continuing next loop
         wait_for_enter();
     }
 }
 
+/// Creates the map for forest exploring based on size
 fn create_map(width: usize, height: usize) -> Vec<Vec<char>> {
-    let mut map = vec![vec!['.'; width]; height];
+    let mut map = vec![vec!['.'; width]; height]; // Use a "2d vector" for the map
 
-    // Add borders
+    // Add borders around the edges
     for x in 0..width {
         map[0][x] = '#';
-        map[height - 1][x] = '#';
+        map[height - 1][x] = '#'; // All top tiles become walls
     }
-
     for y in 0..height {
         map[y][0] = '#';
-        map[y][width - 1] = '#';
+        map[y][width - 1] = '#'; // All side tiles become walls
     }
-    map
+    map // Return the created map
 }
 
-fn render_map(map: &Vec<Vec<char>>, player_x: usize, player_y: usize) {
+/// Outputs the map
+fn output_map(map: &Vec<Vec<char>>, player_x: usize, player_y: usize) {
+    // For each tile
     for y in 0..map.len() {
         for x in 0..map[y].len() {
+            // If the player is on that tile
             if x == player_x && y == player_y {
-                print!(" {} ", "P".blue().bold());
+                print!(" {} ", "P".blue().bold()); // Output a bold blue P to represent the player
             } else {
-                print!(" {} ", map[y][x]);
+                print!(" {} ", map[y][x]); // Else, output regularly what it is (wall or grass '.')
             }
         }
-        println!();
+        println!(); // Make a new line after each row
     }
 }
 
+/// Gets the movement from the user (WASD)
 fn get_move() -> String {
-    print!("Move (WASD, Q to Quit): ");
-    stdout().flush().unwrap();
+    print!("Move (WASD, Q to Quit): "); // Output options
+    stdout().flush().unwrap(); // Ensure it prints correctly
 
+    // Get the input
     let mut input = String::new();
-    stdin().read_line(&mut input).unwrap();
+    stdin().read_line(&mut input).unwrap(); // Unwrap if error
 
+    // Trim empty space and put it into lowercase
     input.trim().to_lowercase()
 }
 
+/// Triggers a random encounter, intended for the forest
 fn trigger_encounter(character: &mut Character) {
+    // Roll a random number 0-100
     let roll = rand::random_range(0..=100);
 
+    // 40% Chance for nothing to happen
     if roll < 40 {
         println!("Nothing happened!");
-    } else if roll < 60 {
+    } 
+    // 20% Chance for a random goblin enemy
+    else if roll < 60 {
+        // Create a goblin that scales with character level
         let mut enemy = Enemy {
             name: "Goblin".to_string(),
-            hp: 25 + level * 12.
-            attack: 3 + level * 2,
-            defense: level / 3,
+            hp: 25 + character.level * 12,
+            attack: 3 + character.level * 2,
+            defense: character.level / 3,
         };
-
+        // Begin combat with the goblin
         combat_loop(character, &mut enemy);
-    } else if roll < 75 {
-        println!("Potion found (+5 hp)");
-        character.hp += 5;
-    } else if roll < 90 {
-        println!("XP orb found (+50 XP)");
-        give_xp(character, 50)
-    } else {
-        println!("Sword found (+1 attack)");
-        character.attack += 1;
+    } 
+    // 15% Chance for the player to find a +5 hp potion
+    else if roll < 75 {
+        println!("Potion found (+5 hp)"); // Output that the player found it
+        character.hp += 5; // Add the hp
+    } 
+    // 15% Chance to find a +50 XP orb
+    else if roll < 90 {
+        println!("XP orb found (+50 XP)"); // Output that the player found it
+        character.give_xp(50) // Add the xp
+    } 
+    // 10% Chance for the player to find a +1 attack sword
+    else {
+        println!("Sword found (+1 attack)"); // Output that the player found it
+        character.attack += 1; // Add temporary attack (does not go past the forest)
     }
 }
 
+/// Struct for a basic enemy
 struct Enemy {
     name: String,
     hp: i32,
@@ -802,66 +831,74 @@ struct Enemy {
     defense: i32,
 }
 
+/// Main combat loop for PVE
 fn combat_loop(player: &mut Character, enemy: &mut Enemy) {
     // Set terminal text color to dark red
     execute!(stdout(), SetForegroundColor(Color::DarkRed)).unwrap();
     // Output title
     output_screen("assets/combat_art.txt", "Fighting!");
+
+    // Output that an enemy has appeared
     println!("A wild {} appears!", enemy.name);
     wait_for_enter();
 
+    // Start combat loop
     loop {
         // Set terminal text color to dark red
         execute!(stdout(), SetForegroundColor(Color::DarkRed)).unwrap();
         // Output title
         output_screen("assets/combat_art.txt", "Fighting!");
 
+        // Print current hp of the enemy and player
         println!("{} HP: {}/{}", player.name, player.hp, player.max_hp);
         println!("{} HP: {}", enemy.name, enemy.hp);
 
+        // Output possible actions for the user
         line();
         println!("Choose action:");
         println!("1. Attack");
         println!("2. Use ability");
+        let choice = get_int(1, 2); // Get choice
 
-        let choice = get_int(1, 2);
-
-        // PLAYER TURN
+        // Match the choice to the action
         match choice {
-            1 => {
+            1 => { // If the player wanted to do a basic attack
                 let damage = (player.attack - enemy.defense).max(1);
                 enemy.hp -= damage;
             }
 
-            2 => {
+            2 => { // If the player wanted to do a special attack
+                // Calculate damage
                 let damage = (player.attack * 2 - enemy.defense).max(1);
-                enemy.hp -= damage;
+                enemy.hp -= damage; // Reduce enemy hp by that damage
             }
 
-            _ => {
+            _ => { // Unreachable code due to the get_int function
                 unreachable!();
             }
         }
 
-        // CHECK WIN
+        // Check if the enemy HP is below or equal to 0
         if enemy.hp <= 0 {
             // Set terminal text color to dark red
             execute!(stdout(), SetForegroundColor(Color::DarkRed)).unwrap();
             // Output title
             output_screen("assets/combat_art.txt", "Fighting!");
+
+            // Output that the enemy has been defeated
             println!("Enemy defeated!");
             line();
-            give_xp(player, 50);
-            break;
+            player.give_xp(50); // Give xp to the player
+            break; // Break the combat loop
         }
 
-        // ENEMY TURN
+        // Enemy damage calculation
         let enemy_damage = (enemy.attack - player.defense).max(1);
-        player.hp -= enemy_damage;
+        player.hp -= enemy_damage; // Minus the players current hp by the enemy damage
 
-        // CHECK LOSS
+        // Check if the player is dead
         if check_if_dead(player) {
-            break;
+            break; // If so, break the loop. It will be outputted at the start of the forest loop.
         }
     }
 }
@@ -880,9 +917,11 @@ fn check_if_dead(character: &mut Character) -> bool {
     }
 }
 
+/// Gets the user to choose two characters, intended for the character battles
 fn choose_two_characters(characters: &Vec<Character>) -> (usize, usize) {
+    // Get first fighter
     println!("Choose first fighter:");
-    let fighter1 = choose_character(characters);
+    let fighter1 = choose_character(characters); // Let the user choose a character
 
     // Set terminal text color to Dark Yellow
     execute!(stdout(), SetForegroundColor(Color::DarkYellow)).unwrap();
@@ -892,19 +931,21 @@ fn choose_two_characters(characters: &Vec<Character>) -> (usize, usize) {
         "Duel to the death! (HP is not changed outside the arena)",
     );
 
+    // Output text to prompt for the second fighter
     println!("Choose second fighter:");
-
+    // Ensure the second fighter is not the same as the first
     loop {
-        let fighter2 = choose_character(characters);
-
-        if fighter2 != fighter1 {
-            return (fighter1, fighter2);
+        let fighter2 = choose_character(characters); // Get a choice from the user
+        if fighter2 != fighter1 { // If the character is not the first as well
+            return (fighter1, fighter2); // Return both selectedfighters
         }
 
+        // Otherwise, output that the fighters cannot be the same
         println!("Cannot fight the same character.");
     }
 }
 
+/// Character PVP function. Handles everything to do with the PVP.
 fn character_battle(characters: &mut Vec<Character>) {
     // Set terminal text color to Dark Yellow
     execute!(stdout(), SetForegroundColor(Color::DarkYellow)).unwrap();
@@ -914,17 +955,21 @@ fn character_battle(characters: &mut Vec<Character>) {
         "Duel to the death! (HP is not changed outside the arena)",
     );
 
+    // If there are not two characters available
     if characters.len() < 2 {
+        // Output that the user needs at least two characters
         println!("You need at least two characters.");
         wait_for_enter();
-        return;
+        return; // Return to main
     }
 
+    // Get the user to choose both fighters
     let (fighter1_index, fighter2_index) = choose_two_characters(characters);
+    // Borrow each fighter from the characters list
+    let fighter1 = &characters[fighter1_index]; 
+    let fighter2 = &characters[fighter2_index]; 
 
-    let fighter1 = &characters[fighter1_index];
-    let fighter2 = &characters[fighter2_index];
-
+    // Ensure the hp does not carry back into the character list. HP will stay the same.
     let mut hp1 = fighter1.hp;
     let mut hp2 = fighter2.hp;
 
@@ -936,10 +981,11 @@ fn character_battle(characters: &mut Vec<Character>) {
         "Duel to the death! (HP is not changed outside the arena)",
     );
 
+    // Output that the first fighter challenges the second
     println!("{} challenges {}!", fighter1.name, fighter2.name);
+    wait_for_enter(); // Wait for enter press
 
-    wait_for_enter();
-
+    // Main combat loop
     loop {
         // Set terminal text color to red
         execute!(stdout(), SetForegroundColor(Color::Red)).unwrap();
@@ -949,32 +995,33 @@ fn character_battle(characters: &mut Vec<Character>) {
             "Duel to the death! (HP is not changed outside the arena)",
         );
 
+        // Print the statistics of each fighter
         println!("{} HP: {}/{}", fighter1.name, hp1, fighter1.max_hp);
-
         println!("{} HP: {}/{}", fighter2.name, hp2, fighter2.max_hp);
-
         line();
 
-        // Roll initiative
+        // Roll initiative for speed
         let initiative1 = fighter1.speed + rand::random_range(1..=20);
         let initiative2 = fighter2.speed + rand::random_range(1..=20);
 
+        // If the first fighter had higher initiative
         if initiative1 >= initiative2 {
-            // Fighter 1 attacks first
-
+            // Get random damage multiplier between effectively 80%-120%
             let multiplier = rand::random_range(80..=120);
+            let mut damage1 = (fighter1.attack * multiplier / 100 - fighter2.defense).max(1); // Calculate the damage
 
-            let mut damage1 = (fighter1.attack * multiplier / 100 - fighter2.defense).max(1);
-
+            // 10% Chance that the attack is a critical
             let critical = rand::random_range(1..=100) <= 10;
 
+            // If it is a critical
             if critical {
-                damage1 *= 2;
+                damage1 *= 2; // Mutliply damage by 2
             }
+            hp2 -= damage1; // Minus the health of fighter 2 by fighter 1's damage
 
-            hp2 -= damage1;
-
+            // If it was a critical hit
             if critical {
+                // Output the damage fighter 1 did to 2, and with special crit text
                 println!(
                     "{} attacks {} for {} damage! {}",
                     fighter1.name,
@@ -982,38 +1029,40 @@ fn character_battle(characters: &mut Vec<Character>) {
                     damage1,
                     "CRITICAL HIT!".green().bold()
                 );
-            } else {
+            } 
+
+            // Else, output it normally
+            else {
                 println!(
                     "{} attacks {} for {} damage!",
                     fighter1.name, fighter2.name, damage1
                 );
             }
 
+            // If fighter 2 has no HP left
             if hp2 <= 0 {
+                // Output that fighter 1 wins
                 line();
                 println!("{} wins!", fighter1.name);
-
-                give_xp(&mut characters[fighter1_index], 100);
-
+                characters[fighter1_index].give_xp(100); // Give the fighter 100 xp
                 wait_for_enter();
-                break;
+                break; // Break back to main
             }
 
-            // Fighter 2 attacks second
+            // Get multiplier for fighter 2's attack damage
+            let multiplier = rand::random_range(80..=120); // Again, between 80%-120%
+            let mut damage2 = (fighter2.attack * multiplier / 100 - fighter1.defense).max(1); // Calculate damage
+            let critical = rand::random_range(1..=100) <= 10; // 10% Chance to be critical
 
-            let multiplier = rand::random_range(80..=120);
-
-            let mut damage2 = (fighter2.attack * multiplier / 100 - fighter1.defense).max(1);
-
-            let critical = rand::random_range(1..=100) <= 10;
-
+            // If it is a critical hit
             if critical {
-                damage2 *= 2;
+                damage2 *= 2; // Mutilply the damage by 2
             }
+            hp1 -= damage2; // Minus the health of fighter 2 by fighter 1's damage
 
-            hp1 -= damage2;
-
+            // If it was a critical hit
             if critical {
+                // Output the damage fighter 1 did to 2, and with special crit text
                 println!(
                     "{} attacks {} for {} damage! {}",
                     fighter2.name,
@@ -1021,38 +1070,42 @@ fn character_battle(characters: &mut Vec<Character>) {
                     damage2,
                     "CRITICAL HIT!".green().bold()
                 );
-            } else {
+            } 
+            // Else, output it normally
+            else {
                 println!(
                     "{} attacks {} for {} damage!",
                     fighter2.name, fighter1.name, damage2
                 );
             }
 
+            // If fighter 1 has no HP left
             if hp1 <= 0 {
+                // Output that fighter 2 wins
                 line();
                 println!("{} wins!", fighter2.name);
-
-                give_xp(&mut characters[fighter2_index], 100);
-
+                characters[fighter2_index].give_xp(100); // Give fighter 2 XP
                 wait_for_enter();
-                break;
+                break; // Return back to main
             }
-        } else {
-            // Fighter 2 attacks first
+        } 
+        
+        // Otherwise, character 2 attacks first
+        else {
+            // Get multiplier for fighter 2's attack damage
+            let multiplier = rand::random_range(80..=120); // Again, between 80%-120%
+            let mut damage2 = (fighter2.attack * multiplier / 100 - fighter1.defense).max(1); // Calculate damage
+            let critical = rand::random_range(1..=100) <= 10; // 10% Chance to be critical
 
-            let multiplier = rand::random_range(80..=120);
-
-            let mut damage2 = (fighter2.attack * multiplier / 100 - fighter1.defense).max(1);
-
-            let critical = rand::random_range(1..=100) <= 10;
-
+            // If it is a critical hit
             if critical {
-                damage2 *= 2;
+                damage2 *= 2; // Mutilply the damage by 2
             }
+            hp1 -= damage2; // Minus the health of fighter 2 by fighter 1's damage
 
-            hp1 -= damage2;
-
+            // If it was a critical hit
             if critical {
+                // Output the damage fighter 1 did to 2, and with special crit text
                 println!(
                     "{} attacks {} for {} damage! {}",
                     fighter2.name,
@@ -1060,38 +1113,42 @@ fn character_battle(characters: &mut Vec<Character>) {
                     damage2,
                     "CRITICAL HIT!".green().bold()
                 );
-            } else {
+            } 
+            // Else, output it normally
+            else {
                 println!(
                     "{} attacks {} for {} damage!",
                     fighter2.name, fighter1.name, damage2
                 );
             }
 
+            // If fighter 1 has no HP left
             if hp1 <= 0 {
+                // Output that fighter 2 wins
                 line();
                 println!("{} wins!", fighter2.name);
-
-                give_xp(&mut characters[fighter2_index], 100);
-
+                characters[fighter2_index].give_xp(100); // Give fighter 2 XP
                 wait_for_enter();
-                break;
+                break; // Return back to main
             }
-
-            // Fighter 1 attacks second
-
+            
+            // Fighter 1 attacks now
+            // Get random damage multiplier between effectively 80%-120%
             let multiplier = rand::random_range(80..=120);
+            let mut damage1 = (fighter1.attack * multiplier / 100 - fighter2.defense).max(1); // Calculate the damage
 
-            let mut damage1 = (fighter1.attack * multiplier / 100 - fighter2.defense).max(1);
-
+            // 10% Chance that the attack is a critical
             let critical = rand::random_range(1..=100) <= 10;
 
+            // If it is a critical
             if critical {
-                damage1 *= 2;
+                damage1 *= 2; // Mutliply damage by 2
             }
+            hp2 -= damage1; // Minus the health of fighter 2 by fighter 1's damage
 
-            hp2 -= damage1;
-
+            // If it was a critical hit
             if critical {
+                // Output the damage fighter 1 did to 2, and with special crit text
                 println!(
                     "{} attacks {} for {} damage! {}",
                     fighter1.name,
@@ -1099,23 +1156,27 @@ fn character_battle(characters: &mut Vec<Character>) {
                     damage1,
                     "CRITICAL HIT!".green().bold()
                 );
-            } else {
+            } 
+
+            // Else, output it normally
+            else {
                 println!(
                     "{} attacks {} for {} damage!",
                     fighter1.name, fighter2.name, damage1
                 );
             }
 
+            // If fighter 2 has no HP left
             if hp2 <= 0 {
+                // Output that fighter 1 wins
                 line();
                 println!("{} wins!", fighter1.name);
-
-                give_xp(&mut characters[fighter1_index], 100);
-
+                characters[fighter1_index].give_xp(100); // Give the fighter 100 xp
                 wait_for_enter();
-                break;
+                break; // Break back to main
             }
         }
+        // Wait for enter between each combat step
         wait_for_enter();
     }
 }
