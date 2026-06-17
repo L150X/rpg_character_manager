@@ -12,6 +12,157 @@ use std::io::Write;
 use std::io::stdin; // Use std::io::stdin for input operations
 use std::io::stdout; // Use std::io::stdout for output operations // Needed for flush()
 
+/// Sorts the characters vector by what the user requests
+fn sort_characters(characters: &mut Vec<Character>) {
+    // Set terminal text color to magenta
+    execute!(stdout(), SetForegroundColor(Color::Magenta)).unwrap();
+    // Output title
+    output_screen(
+        "assets/search_and_modify_art.txt",
+        "Searching characters...",
+    );
+
+    // If there are no characters
+    if characters.is_empty() {
+        println!("No characters to sort.");
+        return;
+    }
+
+    // Output options
+    println!("Sort By:");
+    println!("1: Name");
+    println!("2. Level");
+    println!("3. Attack");
+    println!("4. HP");
+    println!("5. Defense");
+    println!("6. Speed");
+    let choice = get_int(1, 6); // Get choice
+
+    // Based on the choice, set sort-type to what they choose
+    let sort_type = match choice {
+        1 => SortType::Name,
+        2 => SortType::Level,
+        3 => SortType::Attack,
+        4 => SortType::Hp,
+        5 => SortType::Defense,
+        6 => SortType::Speed,
+        _ => unreachable!(),
+    };
+
+    // Sort the list with how the user wanted it sorted
+    selection_sort(characters, sort_type);
+
+    // Output that they are sorted
+    line();
+    println!("Characters Sorted!");
+    wait_for_enter(); // Wait for enter key
+}
+
+/// Enum sorttype for sorting
+enum SortType {
+    Name,
+    Level,
+    Attack,
+    Hp,
+    Defense,
+    Speed,
+}
+
+/// Character struct
+struct Character {
+    // String values
+    name: String,
+    class_type: String,
+    ability: String,
+
+    // Level related
+    level: i32,
+    xp: i32,
+
+    // HP related
+    max_hp: i32,
+    hp: i32,
+
+    // Attack related
+    base_attack: i32,
+    attack: i32,
+
+    // Other
+    defense: i32,
+    speed: i32,
+}
+
+/// Functions for the character struct
+impl Character {
+    /// Compares this character to another character.
+    /// Returns true if self should appear before other in the sorted list.
+    /// Returns false otherwise.
+    fn comes_before(&self, other: &Character, sort_type: &SortType) -> bool{
+        // Match based on sort type
+        match sort_type{
+            // Compare and return
+            SortType::Name => self.name < other.name,
+            SortType::Level => self.level > other.level,
+            SortType::Attack => self.attack > other.attack,
+            SortType::Hp => self.hp > other.hp,
+            SortType::Defense => self.defense > other.defense,
+            SortType::Speed => self.speed > other.speed,
+        }
+    }
+
+    /// Gives xp to the character and attempts to level them up
+    fn give_xp(&mut self, xp: i32) {
+        // Add the xp to the character
+        self.xp += xp;
+        println!("{} gained {} XP!", self.name, xp); // Output xp change
+        // Attempt to level up the character
+        self.level_up();
+    }
+
+    /// Levels up a specific character if possible
+    fn level_up(&mut self) {
+        // While the character has enough xp to level up
+        while self.xp >= self.level * 100 {
+            self.xp -= self.level * 100; // Remove the xp
+            self.level += 1; // Add the level
+            // Add statisitics for levelling up
+            self.max_hp += 10;
+            self.hp = self.max_hp; // Heal fully on level up
+            self.base_attack += 2;
+            self.attack = self.base_attack;
+            self.defense += 1;
+            self.speed += 1;
+
+            // Output that the character levelled up and info regarding it
+            println!("{} levelled up to level {}!", self.name, self.level);
+        }
+    }
+}
+
+/// Selection sort method. Pass the characters list and the sort type, and it sorts based on the type.
+/// Works by finding repeatedly finding the best remaining eement and placing it into its final sorted position.
+fn selection_sort(characters: &mut Vec<Character>, sort_type: SortType){
+    // Save length of the characters list
+    let len = characters.len();
+
+    // Move through each character in the list
+    for i in 0..len{
+        // Set the current position to contain the "best" character
+        let mut best = i;
+
+        // Search the remaining unsotred portion
+        for j in (i + 1)..len{
+            // If this character comes before the current best, set it as best
+            if characters[j].comes_before(&characters[best], &sort_type){
+                best = j;
+            }
+        }
+
+        // Place the best character into its correct position
+        characters.swap(i, best);
+    }
+}
+
 /// Reads a line of input from the user, returning it as a string
 fn read_line() -> String {
     // Create a mutable String to hold the input
@@ -81,7 +232,7 @@ fn output_screen(art_path: &str, extra_info: &str) {
 
 /// Output a line across the screen
 fn line() {
-    let (width, _) = size().unwrap(); // Set width equal to the width of the console
+    let (width, _) = size().expect("Issue getting size of console."); // Set width equal to the width of the console
     println!("{}", "-".repeat(width as usize)); // Repeat repeats a string n times, so fills the screen
 }
 
@@ -171,61 +322,6 @@ fn create_character(characters: &Vec<Character>) -> Character {
     }
 }
 
-/// Character struct
-struct Character {
-    // String values
-    name: String,
-    class_type: String,
-    ability: String,
-
-    // Level related
-    level: i32,
-    xp: i32,
-
-    // HP related
-    max_hp: i32,
-    hp: i32,
-
-    // Attack related
-    base_attack: i32,
-    attack: i32,
-
-    // Other
-    defense: i32,
-    speed: i32,
-}
-
-/// Functions for the character struct
-impl Character {
-    /// Gives xp to the character and attempts to level them up
-    fn give_xp(&mut self, xp: i32) {
-        // Add the xp to the character
-        self.xp += xp;
-        println!("{} gained {} XP!", self.name, xp); // Output xp change
-        // Attempt to level up the character
-        self.level_up();
-    }
-
-    /// Levels up a specific character if possible
-    fn level_up(&mut self) {
-        // While the character has enough xp to level up
-        while self.xp >= self.level * 100 {
-            self.xp -= self.level * 100; // Remove the xp
-            self.level += 1; // Add the level
-            // Add statisitics for levelling up
-            self.max_hp += 10;
-            self.hp = self.max_hp; // Heal fully on level up
-            self.base_attack += 2;
-            self.attack = self.base_attack;
-            self.defense += 1;
-            self.speed += 1;
-
-            // Output that the character levelled up and info regarding it
-            println!("{} levelled up to level {}!", self.name, self.level);
-        }
-    }
-}
-
 /// View all characters
 fn view_characters(characters: &Vec<Character>) {
     // If there are no characters, output that there are none and go back to main menu
@@ -261,59 +357,6 @@ fn view_characters(characters: &Vec<Character>) {
 
     // Enter to continue back to main menu
     wait_for_enter();
-}
-
-/// Sorts the characters vector by what the user requests
-fn sort_characters(characters: &mut Vec<Character>) {
-    // Set terminal text color to magenta
-    execute!(stdout(), SetForegroundColor(Color::Magenta)).unwrap();
-    // Output title
-    output_screen(
-        "assets/search_and_modify_art.txt",
-        "Searching characters...",
-    );
-
-    // If there are no characters
-    if characters.is_empty() {
-        println!("No characters to sort.");
-        return;
-    }
-
-    // Output options
-    println!("Sort By:");
-    println!("1: Name");
-    println!("2. Level");
-    println!("3. Attack");
-    println!("4. HP");
-    println!("5. Defense");
-    let choice = get_int(1, 5); // Get choice
-
-    // Based on the choice
-    match choice {
-        1 => {
-            characters.sort_by(|a, b| a.name.cmp(&b.name)); // Sort by name
-        }
-        2 => {
-            characters.sort_by(|b, a| a.level.cmp(&b.level)); // Sort by level
-        }
-        3 => {
-            characters.sort_by(|b, a| a.attack.cmp(&b.attack)); // Sort by attack
-        }
-        4 => {
-            characters.sort_by(|b, a| a.hp.cmp(&b.hp)); // Sort by hp
-        }
-        5 => {
-            characters.sort_by(|b, a| a.defense.cmp(&b.defense)); // Sort by defense
-        }
-        _ => {
-            unreachable!();
-        }
-    }
-
-    // Output that they are sorted
-    line();
-    println!("Characters Sorted!");
-    wait_for_enter(); // Wait for enter key
 }
 
 /// Function to delete a character by name
@@ -516,15 +559,17 @@ fn search_and_modify_character(characters: &mut Vec<Character>) {
             println!("Attack: {}", character.attack);
             println!("Defense: {}", character.defense);
             println!("Speed: {}", character.speed);
+            line();
 
             // Revive them if they have 0 hp
             if check_if_dead(character) {
                 println!("{} has been revived!", character.name);
+                wait_for_enter();
                 character.hp = character.max_hp; // Set their hp to their max hp
+                line();
             }
 
             // Ask the user if they want to add xp
-            line();
             println!("Would you like to add XP?");
             println!("1. Yes");
             println!("2. No");
@@ -686,6 +731,7 @@ fn explore_forest(characters: &mut Vec<Character>) {
                 "{} cannot continue as they have 0 hp! Revive them in the search and modify area.",
                 character.name
             );
+            wait_for_enter();
             break; // Return to main
         }
 
@@ -704,6 +750,7 @@ fn explore_forest(characters: &mut Vec<Character>) {
         // Get input
         let input = get_move();
         let mut player_moved = true;
+        line();
         // Match the input to movement
         let (new_x, new_y) = match input.as_str() {
             "w" => (x, y.saturating_sub(1)),
@@ -713,8 +760,9 @@ fn explore_forest(characters: &mut Vec<Character>) {
             "q" => break, // If the user wants to leave, break the loop
             _ => {
                 // If the input was not a "WASD" input, do not move the player
+                println!("You need to actually move for something to happen..."); // Output a message so the user knows what happened
                 player_moved = false;
-                (x, y)
+                (x, y) // Return the same place
              } 
         };
 
@@ -730,7 +778,6 @@ fn explore_forest(characters: &mut Vec<Character>) {
         y = new_y;
 
         // Trigger encounter after movement
-        line();
         if player_moved{
             trigger_encounter(character); // Trigger event only if the player moved
         }
@@ -742,7 +789,7 @@ fn explore_forest(characters: &mut Vec<Character>) {
 
 /// Creates the map for forest exploring based on size
 fn create_map(width: usize, height: usize) -> Vec<Vec<char>> {
-    let mut map = vec![vec!['.'; width]; height]; // Use a "2d vector" for the map
+    let mut map = vec![vec!['.'; width]; height]; // Use a "2d vector" for the map. More like a jagged vector
 
     // Add borders around the edges
     for x in 0..width {
@@ -799,9 +846,9 @@ fn trigger_encounter(character: &mut Character) {
         // Create a goblin that scales with character level
         let mut enemy = Enemy {
             name: "Goblin".to_string(),
-            hp: 25 + character.level * 12,
-            attack: 3 + character.level * 2,
-            defense: character.level / 3,
+            hp: 25 + character.level * 20,
+            attack: 7 + character.level * 2,
+            defense: character.level / 2,
         };
         // Begin combat with the goblin
         combat_loop(character, &mut enemy);
@@ -842,6 +889,9 @@ fn combat_loop(player: &mut Character, enemy: &mut Enemy) {
     println!("A wild {} appears!", enemy.name);
     wait_for_enter();
 
+    // Create an ability timer variable
+    let mut ablility_timer: u16 = 0;
+
     // Start combat loop
     loop {
         // Set terminal text color to dark red
@@ -857,7 +907,7 @@ fn combat_loop(player: &mut Character, enemy: &mut Enemy) {
         line();
         println!("Choose action:");
         println!("1. Attack");
-        println!("2. Use ability");
+        println!("2. Use ability. Timer: {}", ablility_timer);
         let choice = get_int(1, 2); // Get choice
 
         // Match the choice to the action
@@ -868,9 +918,16 @@ fn combat_loop(player: &mut Character, enemy: &mut Enemy) {
             }
 
             2 => { // If the player wanted to do a special attack
-                // Calculate damage
+                if ablility_timer != 0{ // If the player cannot use their ability
+                    line();
+                    println!("You attempt to use the ability but fail! Watch the timer..");
+                    wait_for_enter();
+                    continue; // Return to start of combat loop
+                }
+                // Calculate damage (If code gets here, they can use their ability)
                 let damage = (player.attack * 2 - enemy.defense).max(1);
                 enemy.hp -= damage; // Reduce enemy hp by that damage
+                ablility_timer += 3; // add two turns to the timer (is 3 because it subtracts 1 end of combat loop)
             }
 
             _ => { // Unreachable code due to the get_int function
@@ -895,6 +952,9 @@ fn combat_loop(player: &mut Character, enemy: &mut Enemy) {
         // Enemy damage calculation
         let enemy_damage = (enemy.attack - player.defense).max(1);
         player.hp -= enemy_damage; // Minus the players current hp by the enemy damage
+
+        // Minus one to ability timer
+        ablility_timer = ablility_timer.saturating_sub(1); // Subtract one but ensure it does not go lower than 0
 
         // Check if the player is dead
         if check_if_dead(player) {
